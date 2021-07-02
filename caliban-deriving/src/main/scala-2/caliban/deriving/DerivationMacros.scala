@@ -206,7 +206,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
       outputs.map(o => DeriveMember(o, env).deriveField)
 
     val subtypeValues =
-      subtypes.map { case (subtype, (ins, outs)) =>
+      subtypes.map { case (subtype, (_, outs)) =>
         val subtypeInfo = GraphQLInfo(subtype)
         deriveOutputObject(subtypeInfo, env, outs)
       }
@@ -377,7 +377,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
 
     val resolveValue = TermName(c.freshName())
 
-    val cases   = subclassInOut.map { case (subclass, (ins, outs)) =>
+    val cases   = subclassInOut.map { case (subclass, (_, outs)) =>
       val n            = TermName(c.freshName())
       val subclassInfo = GraphQLInfo(subclass)
       cq"""$n: $subclass => ${deriveStep(subclassInfo, requestedEnv, n, outs)}"""
