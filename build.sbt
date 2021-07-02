@@ -51,6 +51,7 @@ lazy val root = project
 lazy val calibanDeriving = project
   .in(file("caliban-deriving"))
   .settings(stdSettings("caliban-deriving"))
+  .settings(dottySettings)
   .settings(buildInfoSettings("caliban.deriving"))
   .settings(
     libraryDependencies ++= Seq(
