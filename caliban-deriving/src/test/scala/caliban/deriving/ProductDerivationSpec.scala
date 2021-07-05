@@ -45,7 +45,7 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
   }
 
   case class ExampleProduct2() {
-    def something(p: ExampleProduct): Long = 0
+    def something(p: ExampleProduct): Long = p.bar.toLong
   }
 
   object ExampleProduct extends GenericSchema[Random] {
