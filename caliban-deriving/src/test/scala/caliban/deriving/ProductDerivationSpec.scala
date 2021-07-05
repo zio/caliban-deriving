@@ -44,6 +44,10 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
     private val xyz: Unit = ()
   }
 
+  case class ExampleProduct2() {
+    def something(p: ExampleProduct): Long = 0
+  }
+
   object ExampleProduct extends GenericSchema[Random] {
     implicit lazy val exampleProductSchema: Schema[Random, ExampleProduct] =
       deriveSchemaInstance[Random, ExampleProduct]
@@ -52,7 +56,7 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
       "hello",
       List("a", "b")
     )
-    lazy val api: GraphQL[Random]    = graphQL(RootResolver(ExampleProduct.exampleValue))
+    lazy val api: GraphQL[Random]    = graphQL(RootResolver(exampleValue))
 
     val expectedSchema: String =
       """schema {
@@ -71,6 +75,29 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
         |  "Randomly picks one of the nicknames"
         |  randomNickname: String
         |}""".stripMargin
+
+    implicit lazy val exampleProduct2Schema: Schema[Random, ExampleProduct2] =
+      deriveSchemaInstance[Random, ExampleProduct2]
+
+    val exampleValue2: ExampleProduct2 = ExampleProduct2()
+    lazy val api2: GraphQL[Random]     = graphQL(RootResolver(exampleValue2))
+
+    val expectedSchema2: String =
+      """schema {
+        |  query: ExampleProduct2
+        |}
+        |
+        |scalar Long
+        |
+        |input ExampleProductInput {
+        |  name: String!
+        |  "A list of the character's nicknames"
+        |  nicknames: [String!]!
+        |}
+        |
+        |type ExampleProduct2 {
+        |  something(p: ExampleProductInput!): Long!
+        |}""".stripMargin
   }
 
   override def spec: ZSpec[TestEnvironment, Any] =
@@ -80,6 +107,11 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
           val rendered = ExampleProduct.api.render
 
           assertTrue(rendered == ExampleProduct.expectedSchema)
+        },
+        test("schema rendered as expected when used as input") {
+          val rendered = ExampleProduct.api2.render
+
+          assertTrue(rendered == ExampleProduct.expectedSchema2)
         }
       )
     ) @@ TestAspect.exceptDotty

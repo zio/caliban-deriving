@@ -64,7 +64,6 @@ class HomeSplash extends React.Component {
                     <ProjectTitle siteConfig={siteConfig}/>
                     <PromoSection>
                         <Button href={docUrl('overview/overview_index')}>Overview</Button>
-                        <Button href={docUrl('usecases/usecases_index')}>Use Cases</Button>
                         <Button href="https://github.com/zio/caliban-deriving" target="_blank">GitHub</Button>
                     </PromoSection>
                 </div>
