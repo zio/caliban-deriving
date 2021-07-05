@@ -7,13 +7,14 @@ title: "Summary"
 
 Start by adding `caliban-deriving` as a dependency to your project:
   
-  ```scala mdoc:passthrough
-  println(s"""```scala""")
-  if (caliban.deriving.BuildInfo.isSnapshot)
-    println(s"""resolvers += Resolver.sonatypeRepo("snapshots")""")
+```scala mdoc:passthrough
+    println(s"""```scala""")
+    if (caliban.deriving.BuildInfo.isSnapshot) {
+        println(s"""resolvers += Resolver.sonatypeRepo("snapshots")""")
+    }
     println(s"""libraryDependencies += "dev.zio" %% "caliban-deriving" % "${caliban.deriving.BuildInfo.version}"""")
     println(s"""```""")
-  ```
+```
 
 Once the library is added, Caliban's default auto-derived schemas can be replaced one by one for each type by explicitly deriving its
 schema using the Caliban Deriving method:
@@ -30,7 +31,7 @@ Please read [Caliban's official documentation about schemas](https://ghostdogpr.
 
 It is important that it is possible to use a _mix_ of Caliban's built-in schemas, auto-derived schemas and the ones provided by `deriveSchemaInstance`. Both derive methods are looking for implicit instances of `Schema`.
 
-** NOTE: The Scala 3 derive macro is work in progress and not usable yet **
+**NOTE: The Scala 3 derive macro is work in progress and not usable yet**
 
 ## Features
 
