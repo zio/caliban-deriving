@@ -2,7 +2,7 @@ package caliban.deriving
 
 import caliban.GraphQL.graphQL
 import caliban.deriving.annotations.GQLExclude
-import caliban.schema.Annotations.{GQLDeprecated, GQLDescription}
+import caliban.schema.Annotations.{GQLDeprecated, GQLDescription, GQLName}
 import caliban.schema.{GenericSchema, Schema}
 import caliban.{GraphQL, RootResolver}
 import zio._
@@ -12,6 +12,7 @@ import zio.test._
 import zio.test.environment._
 
 object ProductDerivationSpec extends DefaultRunnableSpec {
+  @GQLName("EP")
   case class ExampleProduct(
     name: String,
     @GQLDescription("A list of the character's nicknames") nicknames: List[String]
@@ -60,10 +61,10 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
 
     val expectedSchema: String =
       """schema {
-        |  query: ExampleProduct
+        |  query: EP
         |}
         |
-        |type ExampleProduct {
+        |type EP {
         |  name: String!
         |  "A list of the character's nicknames"
         |  nicknames: [String!]!
@@ -114,5 +115,5 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
           assertTrue(rendered == ExampleProduct.expectedSchema2)
         }
       )
-    ) @@ TestAspect.exceptDotty
+    )
 }

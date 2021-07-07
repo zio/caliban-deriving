@@ -294,7 +294,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
   }
 
   private def mergeEnvironments(members: List[TermSymbol]): Type = {
-    val envTypes = members.map(m => DeriveMember(m, typeRefs.Any).envType).toSet - typeRefs.Any
+    val envTypes = members.map(m => DeriveMember(m, typeRefs.Any).detectedEnvType).toSet - typeRefs.Any
     if (envTypes.nonEmpty) {
       envTypes.reduce((a, b) => tq"$a with $b".tpe)
     } else {
