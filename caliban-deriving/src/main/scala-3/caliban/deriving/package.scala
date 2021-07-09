@@ -10,6 +10,15 @@ import caliban.schema.Annotations.GQLDirective
 import scala.quoted.*
 import caliban.schema.Types
 import caliban.deriving.annotations.GQLExclude
+import caliban.schema.Step.ObjectStep
+import caliban.schema.Step
+import caliban.schema.Step.FunctionStep
+import caliban.InputValue
+import caliban.schema.ArgBuilder
+import caliban.CalibanError.ExecutionError
+import caliban.schema.Step.QueryStep
+import zio.query.ZQuery
+import caliban.wrappers.ApolloTracing.Execution
 
 inline def deriveSchemaInstance[R, T]: Schema[R, T] = 
   ${deriveSchemaInstanceImpl[R, T]}
@@ -113,6 +122,13 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
             report.throwError(s"Cannot find an instance of Schema for ${fieldType}")
         }
 
+  def summonArgBuilder(fieldType: TypeRepr) = 
+    (fieldType.asType match {
+        case '[f] => Expr.summon[ArgBuilder[f]]
+    }).getOrElse {
+        report.throwError(s"Cannot find an instance of Schema for ${fieldType}")
+    }        
+
   def deriveParam(envType: TypeRepr, field: Symbol, fieldType: TypeRepr): Expr[caliban.introspection.adt.__InputValue] = {
       val info = extractInfo(field)
       val schema =  summonSchema(envType, fieldType)
@@ -128,17 +144,17 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       }
   }
 
-  def deriveField(envType: TypeRepr, field: Symbol, fieldType: TypeRepr): Expr[caliban.introspection.adt.__Field] = {
-      val info = extractInfo(field)
-
-      val returnType = 
-      (fieldType match {
+  def getReturnType(fieldType: TypeRepr) = 
+    (fieldType match {
           case MethodType(_, _, returnType) => 
             returnType
           case _ => 
             fieldType
       }).widen
 
+  def deriveField(envType: TypeRepr, field: Symbol, fieldType: TypeRepr): Expr[caliban.introspection.adt.__Field] = {
+      val info = extractInfo(field)
+      val returnType = getReturnType(fieldType)    
       val schema =  summonSchema(envType, returnType)
 
       val firstParamList = field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
@@ -168,6 +184,88 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       }
   }
 
+  def deriveStepWithName(resolveValue: Expr[T], envType: TypeRepr, field: Symbol, fieldType: TypeRepr): Expr[(String, Step[R])] = {
+      val info = extractInfo(field)
+      val returnType = getReturnType(fieldType)    
+      val schema =  summonSchema(envType, returnType)
+      val fieldName = field.name
+
+      val firstParamList = field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
+
+      val step = 
+        returnType.asType match {
+            case '[t] =>
+
+            firstParamList.filterNot(_.isEmpty) match {
+                case Some(params) =>                
+                    // Non-empty list of parameters
+
+                    def buildArgs(args: Expr[Map[String, InputValue]]): Expr[Either[ExecutionError, t]] = {
+                        val terms = params.map { param =>
+                            // println(s"${param.name}: ${param.tree}")
+                            val paramType = param.tree.asInstanceOf[ValDef].tpt.tpe
+                            val argBuilder = summonArgBuilder(paramType)
+                            '{ ${argBuilder}.build(${args}(${Expr(param.name)})) }.asTerm
+                        }
+
+                        // // println(terms.map(_.show))
+                                           
+                        def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)]): Expr[Either[ExecutionError, t]] = 
+                            remaining match {
+                                case Nil => 
+                                    val call = Apply(Select(resolveValue.asTerm, field), paramRefs.reverse).asExprOf[t]
+                                    '{Right[ExecutionError, t]($call)}.asExprOf[Either[ExecutionError, t]]
+                                case (headSym, headTerm) :: tail => 
+                                    val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
+                                    headType.asType match {
+                                        case '[ht] =>                                
+                                            Apply(
+                                                '{${headTerm.asExprOf[Either[ExecutionError, ht]]}.flatMap}.asTerm,
+                                                List(
+                                                    Lambda(
+                                                        Symbol.spliceOwner, 
+                                                        MethodType(List(headSym.name))((_: MethodType) => List(headType), (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]),
+                                                        (owner, args) => unwrap(args.head.asExprOf[ht].asTerm :: paramRefs, tail).asTerm.changeOwner(owner)
+                                                    )
+                                                )).asExprOf[Either[ExecutionError, t]]
+                                    }
+                            }
+
+                        unwrap(Nil, params zip terms)
+                    }
+
+                    '{
+                        FunctionStep {
+                            args => 
+                                ${buildArgs('args)} match {
+                                    case Left(error) => QueryStep(ZQuery.fail(error))
+                                    case Right(value) => ${schema.asExprOf[Schema[R, t]]}.resolve(value)
+                                }                            
+                        }
+                    }
+                case None =>
+                    println(s"resolveValue = ${resolveValue.show}; field = ${field.name}")
+
+                    val invoke =
+                        if (firstParamList == Some(Nil)) 
+                            Apply(Select(resolveValue.asTerm, field), List()).asExprOf[t]
+                        else {
+                            val selector = Select(resolveValue.asTerm, field).asExprOf[t]
+                            println(s"selector = ${selector.show}")
+                            selector
+                        }
+                    
+                    '{${schema.asExprOf[Schema[R, t]]}.resolve(${invoke})}
+                }
+        }
+
+    '{
+        (
+            ${Expr(fieldName)},
+            $step
+        )
+    }
+  }
 
   def deriveInput(envType: TypeRepr, info: GraphQLInfo, fields: List[(Symbol, TypeRepr)]): Expr[caliban.introspection.adt.__Type] = {
     val fieldExprs: List[Expr[caliban.introspection.adt.__InputValue]] = 
@@ -220,7 +318,12 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
     '{
       new Schema[R, T] {
-        def resolve(value: T): caliban.schema.Step[R] = null
+        def resolve(value: T): caliban.schema.Step[R] = 
+            ObjectStep.apply[R](
+                ${info.name},
+                List(${Varargs(allFields.map { case (fieldSymbol, fieldType) => deriveStepWithName('value, envType, fieldSymbol, fieldType) })} : _*).toMap
+            )
+
         protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type = {
           if (isInput) {
             ${deriveInput(envType, info, inputFields)}
@@ -244,19 +347,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
   val isCaseClass = targetSym.flags.is(Flags.Case)
   val isSealedTrait = (targetSym.flags.is(Flags.Trait) && targetSym.flags.is(Flags.Sealed)) || (targetSym.flags.is(Flags.Enum))
   val isOpenTrait = !isSealedTrait && targetSym.flags.is(Flags.Trait)
-  println(s"$isCaseClass / $isSealedTrait / $isOpenTrait")
-
-  val nameAnnotation = targetSym
-    .getAnnotation(TypeRepr.of[GQLName].typeSymbol)
-    .flatMap { 
-        case Apply(_, List(Literal(StringConstant(name)))) => Some(name)
-        case _ => None
-    }
-  // Some(Apply(Select(New(Ident(GQLName)),<init>),List(Literal(Constant(EP)))))
-
-
-  println(nameAnnotation)
-
 
     val result =
         if (isCaseClass || isOpenTrait) {
@@ -269,9 +359,11 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
             }
             }
         }
+    println("---------")
     println(result.show)
+    println("---------")
+    
     result
 }
-
 
 
