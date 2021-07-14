@@ -218,16 +218,32 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                                 case (headSym, headTerm) :: tail => 
                                     val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
                                     headType.asType match {
-                                        case '[ht] =>                                
-                                            Apply(
-                                                '{${headTerm.asExprOf[Either[ExecutionError, ht]]}.flatMap}.asTerm,
-                                                List(
-                                                    Lambda(
-                                                        Symbol.spliceOwner, 
-                                                        MethodType(List(headSym.name))((_: MethodType) => List(headType), (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]),
-                                                        (owner, args) => unwrap(args.head.asExprOf[ht].asTerm :: paramRefs, tail).asTerm.changeOwner(owner)
+                                        case '[ht] =>
+                                            println(s"headType: ${headType.show}")
+                                            println(s"headTerm: ${headTerm.show}")
+                                            val anonFun = Symbol.newMethod(
+                                                Symbol.spliceOwner, 
+                                                "anonFun", 
+                                                MethodType(List(headSym.name))((_: MethodType) => List(headType), (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]))
+
+                                            val term = Select.unique(headTerm, "flatMap")
+                                                .appliedToTypes(List(TypeRepr.of[ExecutionError], returnType))
+                                                .appliedTo(
+                                                    Block(
+                                                        List(
+                                                            DefDef(
+                                                                anonFun, {
+                                                                    case List(List(paramTerm: Term)) =>
+                                                                        Some(unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm)
+                                                                }
+                                                            )
+                                                        ),
+                                                        Closure(Ref(anonFun), None)
                                                     )
-                                                )).asExprOf[Either[ExecutionError, t]]
+                                            ).asExprOf[Either[ExecutionError, t]]
+
+                                            println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
+                                            term
                                     }
                             }
 
