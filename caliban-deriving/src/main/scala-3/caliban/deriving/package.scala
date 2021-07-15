@@ -40,6 +40,8 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
 
   def extractInfo(symbol: Symbol): GraphQLInfo = {
+    println(s"Symbol ${symbol.name} annotations: ${symbol.annotations}")
+
     val nameAnnotation = symbol
         .getAnnotation(TypeRepr.of[GQLName].typeSymbol)
         .flatMap { 
@@ -200,7 +202,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                 case Some(params) =>                
                     // Non-empty list of parameters
 
-                    def buildArgs(args: Expr[Map[String, InputValue]]): Expr[Either[ExecutionError, t]] = {
+                    def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
                         val terms = params.map { param =>
                             // println(s"${param.name}: ${param.tree}")
                             val paramType = param.tree.asInstanceOf[ValDef].tpt.tpe
@@ -210,7 +212,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
                         // // println(terms.map(_.show))
                                            
-                        def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)]): Expr[Either[ExecutionError, t]] = 
+                        def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using Quotes): Expr[Either[ExecutionError, t]] = 
                             remaining match {
                                 case Nil => 
                                     val call = Apply(Select(resolveValue.asTerm, field), paramRefs.reverse).asExprOf[t]
@@ -219,8 +221,8 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                                     val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
                                     headType.asType match {
                                         case '[ht] =>
-                                            println(s"headType: ${headType.show}")
-                                            println(s"headTerm: ${headTerm.show}")
+                                            // println(s"headType: ${headType.show}")
+                                            // println(s"headTerm: ${headTerm.show}")
                                             val anonFun = Symbol.newMethod(
                                                 Symbol.spliceOwner, 
                                                 "anonFun", 
@@ -234,7 +236,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                                                             DefDef(
                                                                 anonFun, {
                                                                     case List(List(paramTerm: Term)) =>
-                                                                        Some(unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm)
+                                                                        Some(unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm.changeOwner(anonFun))
                                                                 }
                                                             )
                                                         ),
@@ -242,7 +244,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                                                     )
                                             ).asExprOf[Either[ExecutionError, t]]
 
-                                            println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
+                                            // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
                                             term
                                     }
                             }
@@ -315,6 +317,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
   }
 
   def deriveProduct(envType: TypeRepr, targetSym: Symbol, targetType: TypeRepr): Expr[Schema[R, T]] = {
+      // TODO: get annotations from case class parameters too, not only the field symbols
     val inputFields = targetSym.caseFields
         .filterNot(isExcluded)
         .map { field => (field, targetType.memberType(field)) }
@@ -375,9 +378,9 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
             }
             }
         }
-    println("---------")
-    println(result.show)
-    println("---------")
+    // println("---------")
+    // println(result.show)
+    // println("---------")
     
     result
 }

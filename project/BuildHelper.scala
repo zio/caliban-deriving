@@ -68,7 +68,7 @@ object BuildHelper {
     crossScalaVersions += ScalaDotty,
     scalacOptions ++= {
       if (scalaVersion.value == ScalaDotty)
-        Seq("-noindent")
+        Seq("-noindent", "-Xcheck-macros")
       else
         Seq()
     },
