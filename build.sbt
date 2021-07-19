@@ -35,13 +35,12 @@ addCommandAlias(
 )
 
 val zioVersion     = "1.0.9"
-val calibanVersion = "1.0.1"
+val calibanVersion = "1.1.0"
 
 lazy val root = project
   .in(file("."))
   .settings(
     publish / skip := true,
-    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
     calibanDeriving,

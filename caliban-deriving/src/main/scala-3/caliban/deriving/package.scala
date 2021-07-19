@@ -21,9 +21,8 @@ import zio.query.ZQuery
 import caliban.wrappers.ApolloTracing.Execution
 import java.text.DateFormat.Field
 
-inline def deriveSchemaInstance[R, T]: Schema[R, T] = 
-  ${deriveSchemaInstanceImpl[R, T]}
-
+inline def deriveSchemaInstance[R, T]: Schema[R, T] =
+  ${ deriveSchemaInstanceImpl[R, T] }
 
 private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schema[R, T]] = {
   import quotes.reflect.*
@@ -35,53 +34,51 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     deprecationReason: Expr[Option[String]],
     directives: Expr[List[caliban.parsing.adt.Directive]]
   ) {
-    def isDeprecated: Expr[Boolean] = '{${deprecationReason}.isDefined}
-    def directivesOpt: Expr[Option[List[caliban.parsing.adt.Directive]]] = '{Some($directives).filterNot(_.isEmpty)}
+    def isDeprecated: Expr[Boolean]                                      = '{ ${ deprecationReason }.isDefined }
+    def directivesOpt: Expr[Option[List[caliban.parsing.adt.Directive]]] = '{ Some($directives).filterNot(_.isEmpty) }
   }
 
   case class Field(field: Symbol, constructorParameter: Option[Symbol], typ: TypeRepr)
 
-  def extractAnnotation[Annotation : Type](symbol: Symbol, altSymbol: Option[Symbol]): Option[Term] =
+  def extractAnnotation[Annotation: Type](symbol: Symbol, altSymbol: Option[Symbol]): Option[Term] =
     symbol
-        .getAnnotation(TypeRepr.of[Annotation].typeSymbol)
-        .orElse(altSymbol.flatMap(_.getAnnotation(TypeRepr.of[Annotation].typeSymbol)))
+      .getAnnotation(TypeRepr.of[Annotation].typeSymbol)
+      .orElse(altSymbol.flatMap(_.getAnnotation(TypeRepr.of[Annotation].typeSymbol)))
 
-  def extractStringAnnotation[Annotation : Type](symbol: Symbol, altSymbol: Option[Symbol]): Option[Expr[String]] =
-    extractAnnotation[Annotation](symbol, altSymbol)
-        .flatMap { 
-            case Apply(_, List(Literal(StringConstant(name)))) => Some(Expr(name))
-            case _ => None
-        }
+  def extractStringAnnotation[Annotation: Type](symbol: Symbol, altSymbol: Option[Symbol]): Option[Expr[String]] =
+    extractAnnotation[Annotation](symbol, altSymbol).flatMap {
+      case Apply(_, List(Literal(StringConstant(name)))) => Some(Expr(name))
+      case _                                             => None
+    }
 
   def extractInfo(symbol: Symbol, altSymbol: Option[Symbol]): GraphQLInfo = {
-    println(s"Symbol ${symbol.name} annotations: ${symbol.annotations} / alternative annotations: ${altSymbol.map(_.annotations)}")
+    println(
+      s"Symbol ${symbol.name} annotations: ${symbol.annotations} / alternative annotations: ${altSymbol.map(_.annotations)}"
+    )
 
-    val nameAnnotation = extractStringAnnotation[GQLName](symbol, altSymbol)
-    val inputNameAnnotation = extractStringAnnotation[GQLInputName](symbol, altSymbol)
-    val descriptionAnnotation = extractStringAnnotation[GQLDescription](symbol, altSymbol)
-    val deprecatedAnnotation = extractStringAnnotation[GQLDeprecated](symbol, altSymbol)
-    val directiveAnnotations: Seq[Expr[Directive]] = symbol
-        .annotations
-        .filter { annotation =>
-            annotation.tpe =:= TypeRepr.of[GQLDirective]
-        }
-        .flatMap { 
-            case Apply(_, List(directive)) => Some(directive)
-            case _ => None
-        }
-        .map(_.asExprOf[Directive])
+    val nameAnnotation                             = extractStringAnnotation[GQLName](symbol, altSymbol)
+    val inputNameAnnotation                        = extractStringAnnotation[GQLInputName](symbol, altSymbol)
+    val descriptionAnnotation                      = extractStringAnnotation[GQLDescription](symbol, altSymbol)
+    val deprecatedAnnotation                       = extractStringAnnotation[GQLDeprecated](symbol, altSymbol)
+    val directiveAnnotations: Seq[Expr[Directive]] = symbol.annotations.filter { annotation =>
+      annotation.tpe =:= TypeRepr.of[GQLDirective]
+    }.flatMap {
+      case Apply(_, List(directive)) => Some(directive)
+      case _                         => None
+    }
+      .map(_.asExprOf[Directive])
 
-    val name = nameAnnotation.getOrElse(Expr(symbol.name)) // TODO: append type parameter names
-    val inputName = inputNameAnnotation.getOrElse('{caliban.schema.Schema.customizeInputTypeName($name)})
-    val description: Expr[Option[String]] = descriptionAnnotation match {
-        case Some(d) => '{Some($d)}
-        case None => '{None}
+    val name                                    = nameAnnotation.getOrElse(Expr(symbol.name)) // TODO: append type parameter names
+    val inputName                               = inputNameAnnotation.getOrElse('{ caliban.schema.Schema.customizeInputTypeName($name) })
+    val description: Expr[Option[String]]       = descriptionAnnotation match {
+      case Some(d) => '{ Some($d) }
+      case None    => '{ None }
     }
     val deprecationReason: Expr[Option[String]] = deprecatedAnnotation match {
-        case Some(d) => '{Some($d)}
-        case None => '{None}
+      case Some(d) => '{ Some($d) }
+      case None    => '{ None }
     }
-    val directives = '{List(${Varargs(directiveAnnotations)} : _*)}
+    val directives                              = '{ List(${ Varargs(directiveAnnotations) }: _*) }
 
     GraphQLInfo(
       name,
@@ -92,300 +89,356 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     )
   }
 
-  def isExcluded(symbol: Symbol): Boolean = 
-    symbol        
-        .getAnnotation(TypeRepr.of[GQLExclude].typeSymbol)
-        .isDefined
+  def isExcluded(symbol: Symbol): Boolean =
+    symbol
+      .getAnnotation(TypeRepr.of[GQLExclude].typeSymbol)
+      .isDefined
 
-  def makeCalibanType(schema: Expr[Schema[_, _]], isInput: Boolean): Expr[() => caliban.introspection.adt.__Type] = 
-    '{
-        () => {
-            if (${schema}.optional) {
-                ${schema}.toType_(${Expr(isInput)})
-            } else {
-                Types.makeNonNull($schema.toType_(${Expr(isInput)}))
-            }
-        }
+  def makeCalibanType(schema: Expr[Schema[_, _]], isInput: Boolean): Expr[() => caliban.introspection.adt.__Type] =
+    '{ () =>
+      if (${ schema }.optional) {
+        ${ schema }.toType_(${ Expr(isInput) })
+      } else {
+        Types.makeNonNull($schema.toType_(${ Expr(isInput) }))
+      }
     }
 
-  def summonSchema(envType: TypeRepr, fieldType: TypeRepr) = 
+  def summonSchema(envType: TypeRepr, fieldType: TypeRepr) =
     (envType.asType match {
-            case '[e] => 
-                fieldType.asType match {
-                    case '[f] => Expr.summon[Schema[e, f]]
-                }
-        }).getOrElse {
-            report.throwError(s"Cannot find an instance of Schema for ${fieldType}")
+      case '[e] =>
+        fieldType.asType match {
+          case '[f] => Expr.summon[Schema[e, f]]
         }
-
-  def summonArgBuilder(fieldType: TypeRepr) = 
-    (fieldType.asType match {
-        case '[f] => Expr.summon[ArgBuilder[f]]
     }).getOrElse {
-        report.throwError(s"Cannot find an instance of Schema for ${fieldType}")
-    }        
+      report.throwError(s"Cannot find an instance of Schema for $fieldType")
+    }
+
+  def summonArgBuilder(fieldType: TypeRepr) =
+    (fieldType.asType match {
+      case '[f] => Expr.summon[ArgBuilder[f]]
+    }).getOrElse {
+      report.throwError(s"Cannot find an instance of Schema for $fieldType")
+    }
 
   def deriveParam(envType: TypeRepr, field: Field): Expr[caliban.introspection.adt.__InputValue] = {
-      val info = extractInfo(field.field, field.constructorParameter)
-      val schema =  summonSchema(envType, field.typ)
+    val info   = extractInfo(field.field, field.constructorParameter)
+    val schema = summonSchema(envType, field.typ)
 
-      '{
-          caliban.introspection.adt.__InputValue(
-              ${Expr(field.field.name)},
-              ${info.description},
-              ${makeCalibanType(schema, isInput = true)},
-              None, // TODO
-              ${info.directivesOpt}
-          )
-      }
+    '{
+      caliban.introspection.adt.__InputValue(
+        ${ Expr(field.field.name) },
+        ${ info.description },
+        ${ makeCalibanType(schema, isInput = true) },
+        None, // TODO
+        ${ info.directivesOpt }
+      )
+    }
   }
 
-  def getReturnType(fieldType: TypeRepr) = 
+  def getReturnType(fieldType: TypeRepr) =
     (fieldType match {
-          case MethodType(_, _, returnType) => 
-            returnType
-          case _ => 
-            fieldType
-      }).widen
+      case MethodType(_, _, returnType) =>
+        returnType
+      case _                            =>
+        fieldType
+    }).widen
 
   def deriveField(envType: TypeRepr, field: Field): Expr[caliban.introspection.adt.__Field] = {
-      val info = extractInfo(field.field, field.constructorParameter)
-      val returnType = getReturnType(field.typ)
-      val schema =  summonSchema(envType, returnType)
+    val info       = extractInfo(field.field, field.constructorParameter)
+    val returnType = getReturnType(field.typ)
+    val schema     = summonSchema(envType, returnType)
 
-      val firstParamList = field.field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
-      val args = 
-        firstParamList.filterNot(_.isEmpty) match {
-            case Some(params) =>
-                // Non-empty list of parameters
-                params.map { param => 
-                    val paramType = Ref(param).tpe.widen
-                    deriveParam(envType, Field(param, None, paramType))
-                }
-            case None =>
-                // Parameterless or empty parameter list
-                Nil
-        }
-
-      '{
-          caliban.introspection.adt.__Field(
-              ${Expr(field.field.name)},
-              ${info.description},
-              List(${Varargs(args)} : _*),
-              ${makeCalibanType(schema, isInput = false)},
-              ${info.isDeprecated},
-              ${info.deprecationReason},
-              ${info.directivesOpt}
-          )
+    val firstParamList = field.field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
+    val args           =
+      firstParamList.filterNot(_.isEmpty) match {
+        case Some(params) =>
+          // Non-empty list of parameters
+          params.map { param =>
+            val paramType = Ref(param).tpe.widen
+            deriveParam(envType, Field(param, None, paramType))
+          }
+        case None         =>
+          // Parameterless or empty parameter list
+          Nil
       }
+
+    '{
+      caliban.introspection.adt.__Field(
+        ${ Expr(field.field.name) },
+        ${ info.description },
+        List(${ Varargs(args) }: _*),
+        ${ makeCalibanType(schema, isInput = false) },
+        ${ info.isDeprecated },
+        ${ info.deprecationReason },
+        ${ info.directivesOpt }
+      )
+    }
   }
 
   def deriveStepWithName(resolveValue: Expr[T], envType: TypeRepr, field: Field): Expr[(String, Step[R])] = {
-      val info = extractInfo(field.field, field.constructorParameter)
-      val returnType = getReturnType(field.typ)
-      val schema =  summonSchema(envType, returnType)
-      val fieldName = field.field.name
+    val info       = extractInfo(field.field, field.constructorParameter)
+    val returnType = getReturnType(field.typ)
+    val schema     = summonSchema(envType, returnType)
+    val fieldName  = field.field.name
 
-      val firstParamList = field.field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
+    val firstParamList = field.field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
 
-      val step = 
-        returnType.asType match {
-            case '[t] =>
+    val step =
+      returnType.asType match {
+        case '[t] =>
+          firstParamList.filterNot(_.isEmpty) match {
+            case Some(params) =>
+              // Non-empty list of parameters
 
-            firstParamList.filterNot(_.isEmpty) match {
-                case Some(params) =>                
-                    // Non-empty list of parameters
-
-                    def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
-                        val terms = params.map { param =>
-                            // println(s"${param.name}: ${param.tree}")
-                            val paramType = param.tree.asInstanceOf[ValDef].tpt.tpe
-                            val argBuilder = summonArgBuilder(paramType)
-                            '{ ${argBuilder}.build(${args}(${Expr(param.name)})) }.asTerm
-                        }
-
-                        // // println(terms.map(_.show))
-                                           
-                        def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using Quotes): Expr[Either[ExecutionError, t]] = 
-                            remaining match {
-                                case Nil => 
-                                    val call = Apply(Select(resolveValue.asTerm, field.field), paramRefs.reverse).asExprOf[t]
-                                    '{Right[ExecutionError, t]($call)}.asExprOf[Either[ExecutionError, t]]
-                                case (headSym, headTerm) :: tail => 
-                                    val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
-                                    headType.asType match {
-                                        case '[ht] =>
-                                            // println(s"headType: ${headType.show}")
-                                            // println(s"headTerm: ${headTerm.show}")
-                                            val anonFun = Symbol.newMethod(
-                                                Symbol.spliceOwner, 
-                                                "anonFun", 
-                                                MethodType(List(headSym.name))((_: MethodType) => List(headType), (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]))
-
-                                            val term = Select.unique(headTerm, "flatMap")
-                                                .appliedToTypes(List(TypeRepr.of[ExecutionError], returnType))
-                                                .appliedTo(
-                                                    Block(
-                                                        List(
-                                                            DefDef(
-                                                                anonFun, {
-                                                                    case List(List(paramTerm: Term)) =>
-                                                                        Some(unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm.changeOwner(anonFun))
-                                                                }
-                                                            )
-                                                        ),
-                                                        Closure(Ref(anonFun), None)
-                                                    )
-                                            ).asExprOf[Either[ExecutionError, t]]
-
-                                            // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
-                                            term
-                                    }
-                            }
-
-                        unwrap(Nil, params zip terms)
-                    }
-
-                    '{
-                        FunctionStep {
-                            args => 
-                                ${buildArgs('args)} match {
-                                    case Left(error) => QueryStep(ZQuery.fail(error))
-                                    case Right(value) => ${schema.asExprOf[Schema[R, t]]}.resolve(value)
-                                }                            
-                        }
-                    }
-                case None =>
-                    println(s"resolveValue = ${resolveValue.show}; field = ${field.field.name}")
-
-                    val invoke =
-                        if (firstParamList == Some(Nil)) 
-                            Apply(Select(resolveValue.asTerm, field.field), List()).asExprOf[t]
-                        else {
-                            val selector = Select(resolveValue.asTerm, field.field).asExprOf[t]
-                            println(s"selector = ${selector.show}")
-                            selector
-                        }
-                    
-                    '{${schema.asExprOf[Schema[R, t]]}.resolve(${invoke})}
+              def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
+                val terms = params.map { param =>
+                  // println(s"${param.name}: ${param.tree}")
+                  val paramType  = param.tree.asInstanceOf[ValDef].tpt.tpe
+                  val argBuilder = summonArgBuilder(paramType)
+                  '{ ${ argBuilder }.build(${ args }(${ Expr(param.name) })) }.asTerm
                 }
-        }
+
+                // // println(terms.map(_.show))
+
+                def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using
+                  Quotes
+                ): Expr[Either[ExecutionError, t]] =
+                  remaining match {
+                    case Nil                         =>
+                      val call = Apply(Select(resolveValue.asTerm, field.field), paramRefs.reverse).asExprOf[t]
+                      '{ Right[ExecutionError, t]($call) }.asExprOf[Either[ExecutionError, t]]
+                    case (headSym, headTerm) :: tail =>
+                      val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
+                      headType.asType match {
+                        case '[ht] =>
+                          // println(s"headType: ${headType.show}")
+                          // println(s"headTerm: ${headTerm.show}")
+                          val anonFun = Symbol.newMethod(
+                            Symbol.spliceOwner,
+                            "anonFun",
+                            MethodType(List(headSym.name))(
+                              (_: MethodType) => List(headType),
+                              (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]
+                            )
+                          )
+
+                          val term = Select
+                            .unique(headTerm, "flatMap")
+                            .appliedToTypes(List(TypeRepr.of[ExecutionError], returnType))
+                            .appliedTo(
+                              Block(
+                                List(
+                                  DefDef(
+                                    anonFun,
+                                    { case List(List(paramTerm: Term)) =>
+                                      Some(
+                                        unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm
+                                          .changeOwner(anonFun)
+                                      )
+                                    }
+                                  )
+                                ),
+                                Closure(Ref(anonFun), None)
+                              )
+                            )
+                            .asExprOf[Either[ExecutionError, t]]
+
+                          // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
+                          term
+                      }
+                  }
+
+                unwrap(Nil, params zip terms)
+              }
+
+              '{
+                FunctionStep { args =>
+                  ${ buildArgs('args) } match {
+                    case Left(error)  => QueryStep(ZQuery.fail(error))
+                    case Right(value) => ${ schema.asExprOf[Schema[R, t]] }.resolve(value)
+                  }
+                }
+              }
+            case None         =>
+              println(s"resolveValue = ${resolveValue.show}; field = ${field.field.name}")
+
+              val invoke =
+                if (firstParamList == Some(Nil)) Apply(Select(resolveValue.asTerm, field.field), List()).asExprOf[t]
+                else {
+                  val selector = Select(resolveValue.asTerm, field.field).asExprOf[t]
+                  println(s"selector = ${selector.show}")
+                  selector
+                }
+
+              '{ ${ schema.asExprOf[Schema[R, t]] }.resolve(${ invoke }) }
+          }
+      }
 
     '{
-        (
-            ${Expr(fieldName)},
-            $step
-        )
+      (
+        ${ Expr(fieldName) },
+        $step
+      )
     }
   }
 
   def deriveInput(envType: TypeRepr, info: GraphQLInfo, fields: List[Field]): Expr[caliban.introspection.adt.__Type] = {
-    val fieldExprs: List[Expr[caliban.introspection.adt.__InputValue]] = 
-        fields.map { case field => 
-            deriveParam(envType, field)
-        }
+    val fieldExprs: List[Expr[caliban.introspection.adt.__InputValue]] =
+      fields.map { case field =>
+        deriveParam(envType, field)
+      }
 
     '{
-        caliban.schema.Types.makeInputObject(
-            Some(${info.inputName}),
-            ${info.description},
-            List(${Varargs(fieldExprs)} : _*)
-        )
-    }
-  }    
-
-  def deriveObject(envType: TypeRepr, info: GraphQLInfo, fields: List[Field]): Expr[caliban.introspection.adt.__Type] = {
-    val fieldExprs: List[Expr[caliban.introspection.adt.__Field]] = 
-        fields.map { field => 
-            deriveField(envType, field)
-        }
-
-    '{
-        caliban.schema.Types.makeObject(
-            Some(${info.name}),
-            ${info.description},
-            List(${Varargs(fieldExprs)} : _*),
-            ${info.directives}
-        )
+      caliban.schema.Types.makeInputObject(
+        Some(${ info.inputName }),
+        ${ info.description },
+        List(${ Varargs(fieldExprs) }: _*)
+      )
     }
   }
 
-  def enrichWithConstructorField(product: Symbol, field: Field): Field = 
-    field.copy(constructorParameter = 
-        product
-            .primaryConstructor.paramSymss
-            .flatten
-            .find { param => param.name == field.field.name }
-    )
+  def deriveObject(
+    envType: TypeRepr,
+    info: GraphQLInfo,
+    fields: List[Field]
+  ): Expr[caliban.introspection.adt.__Type] = {
+    val fieldExprs: List[Expr[caliban.introspection.adt.__Field]] =
+      fields.map { field =>
+        deriveField(envType, field)
+      }
+
+    '{
+      caliban.schema.Types.makeObject(
+        Some(${ info.name }),
+        ${ info.description },
+        List(${ Varargs(fieldExprs) }: _*),
+        ${ info.directives }
+      )
+    }
+  }
+
+  def enrichWithConstructorField(product: Symbol, field: Field): Field =
+    field.copy(constructorParameter = product.primaryConstructor.paramSymss.flatten.find { param =>
+      param.name == field.field.name
+    })
+
+  def getInputFields(targetSym: Symbol, targetType: TypeRepr): List[Field] =
+    targetSym.caseFields
+      .filterNot(isExcluded)
+      .map(field => Field(field, None, targetType.memberType(field)))
+      .map(field => enrichWithConstructorField(targetSym, field))
+
+  def getAllFields(targetSym: Symbol, targetType: TypeRepr): List[Field] =
+    (targetSym.declaredFields ++ targetSym.declaredMethods).filter { field =>
+      !field.flags.is(Flags.Artifact) &&
+      !field.flags.is(Flags.Synthetic) &&
+      !field.flags.is(Flags.Protected) &&
+      !field.flags.is(Flags.Private)
+    }
+      .filterNot(isExcluded)
+      .map(field => Field(field, None, targetType.memberType(field)))
+      .map(field => enrichWithConstructorField(targetSym, field))
 
   def deriveProduct(envType: TypeRepr, targetSym: Symbol, targetType: TypeRepr): Expr[Schema[R, T]] = {
-    val inputFields = targetSym.caseFields
-        .filterNot(isExcluded)
-        .map { field => Field(field, None, targetType.memberType(field)) }
-        .map { field => enrichWithConstructorField(targetSym, field) }
-    val allFields = (targetSym.declaredFields ++ targetSym.declaredMethods)
-        .filter { field => 
-            !field.flags.is(Flags.Artifact) &&
-            !field.flags.is(Flags.Synthetic) &&
-            !field.flags.is(Flags.Protected) &&
-            !field.flags.is(Flags.Private)
-        }
-        .filterNot(isExcluded)
-        .map { field => Field(field, None, targetType.memberType(field)) }
-        .map { field => enrichWithConstructorField(targetSym, field) }
-    val info = extractInfo(targetSym, None)
+    val inputFields = getInputFields(targetSym, targetType)
+    val allFields   = getAllFields(targetSym, targetType)
+    val info        = extractInfo(targetSym, None)
 
     println(s"For ${targetSym.name} input fields are ${inputFields.map(_._1.name)}")
     println(s"For ${targetSym.name} all fields are ${allFields.map(_._1.name)}")
 
     '{
       new Schema[R, T] {
-        def resolve(value: T): caliban.schema.Step[R] = 
-            ObjectStep.apply[R](
-                ${info.name},
-                List(${Varargs(allFields.map { field => deriveStepWithName('value, envType, field) })} : _*).toMap
-            )
+        def resolve(value: T): caliban.schema.Step[R] =
+          ObjectStep.apply[R](
+            ${ info.name },
+            List(${ Varargs(allFields.map(field => deriveStepWithName('value, envType, field))) }: _*).toMap
+          )
 
-        protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type = {
+        protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type =
           if (isInput) {
-            ${deriveInput(envType, info, inputFields)}
+            ${ deriveInput(envType, info, inputFields) }
           } else {
-            ${deriveObject(envType, info, allFields)}
+            ${ deriveObject(envType, info, allFields) }
           }
-        }
       }
     }
   }
 
-  val envType = TypeRepr.of[R]
+  def findLeafConstructors(of: Symbol): List[Symbol] =
+    of.children.flatMap { child =>
+      if (child.flags.is(Flags.Trait)) {
+        findLeafConstructors(child)
+      } else {
+        List(child)
+      }
+    }
+
+  def getSubclassType(subclassTree: Tree): TypeRepr =
+    subclassTree match {
+      case cls: ClassDef          => cls.constructor.returnTpt.tpe
+      case ValDef(_, tpt, _)      => tpt.tpe
+      case Bind(_, pattern: Term) => pattern.tpe
+    }
+
+  def deriveSum(envType: TypeRepr, targetSym: Symbol, targetType: TypeRepr): Expr[Schema[R, T]] = {
+    val subclasses = findLeafConstructors(targetSym)
+    val outputs    = getAllFields(targetSym, targetType)
+    val info       = extractInfo(targetSym, None)
+
+    println(s"For ${targetSym.name} all fields are ${outputs.map(_._1.name)}")
+    println(s"For ${targetSym.name} constructors are $subclasses")
+
+    val subclassInOut =
+      subclasses.map { subclass =>
+        val subclassType = getSubclassType(subclass.tree)
+        val inputs       = getInputFields(subclass, subclassType)
+        val outputs      = getAllFields(subclass, subclassType)
+
+        println(s"For ${targetSym.name}'s subclass ${subclass.name} input fields are ${inputs.map(_._1.name)}")
+        println(s"For ${targetSym.name}'s subclass ${subclass.name} output fields are ${outputs.map(_._1.name)}")
+        println(s"For ${targetSym.name}'s subclass ${subclass.name} type is ${subclassType.show}")
+
+        (subclass, (inputs, outputs))
+      }.toMap
+
+    val isEnum      = outputs.isEmpty && subclassInOut.forall { case (_, (in, out)) => in.isEmpty && out.isEmpty }
+    val isUnion     = !isEnum && outputs.isEmpty
+    val isInterface = !isEnum && !isUnion
+
+    println(s"$isEnum / $isUnion / $isInterface")
+
+    '{
+      new Schema[R, T] {
+        def resolve(value: T): caliban.schema.Step[R]                                                           = ???
+        protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type = ???
+      }
+    }
+  }
+
+  val envType    = TypeRepr.of[R]
   val targetType = TypeRepr.of[T]
   val targetTree = TypeTree.of[T]
-  val targetSym = targetTree.symbol
+  val targetSym  = targetTree.symbol
 
   println(s"env type: ${envType.show}")
   println(s"target type: $targetSym")
   println(s"target flags: ${targetSym.flags.show}")
 
-  val isCaseClass = targetSym.flags.is(Flags.Case)
-  val isSealedTrait = (targetSym.flags.is(Flags.Trait) && targetSym.flags.is(Flags.Sealed)) || (targetSym.flags.is(Flags.Enum))
-  val isOpenTrait = !isSealedTrait && targetSym.flags.is(Flags.Trait)
+  val isCaseClass   = targetSym.flags.is(Flags.Case)
+  val isSealedTrait =
+    (targetSym.flags.is(Flags.Trait) && targetSym.flags.is(Flags.Sealed)) || (targetSym.flags.is(Flags.Enum))
+  val isOpenTrait   = !isSealedTrait && targetSym.flags.is(Flags.Trait)
 
-    val result =
-        if (isCaseClass || isOpenTrait) {
-            deriveProduct(envType, targetSym, targetType)
-        } else {
-            '{
-            new Schema[R, T] {
-                def resolve(value: T): caliban.schema.Step[R] = ???
-                protected[this] def  toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type = ???
-            }
-            }
-        }
-    // println("---------")
-    // println(result.show)
-    // println("---------")
-    
-    result
+  val result =
+    if (isCaseClass || isOpenTrait) {
+      deriveProduct(envType, targetSym, targetType)
+    } else {
+      deriveSum(envType, targetSym, targetType)
+    }
+  // println("---------")
+  // println(result.show)
+  // println("---------")
+
+  result
 }
-
-

@@ -27,7 +27,7 @@ object OpenTraitDerivationSpec extends DefaultRunnableSpec {
 
     def query: ZQuery[Any, Nothing, String]
     def op(pattern: String, limit: Int): List[String]
-    
+
     @GQLDescription("Randomly picks one of the nicknames")
     def randomNickname: ZIO[Random, Nothing, Option[String]]
 

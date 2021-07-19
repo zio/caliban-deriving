@@ -53,8 +53,8 @@ trait MacroUtils {
   protected implicit class TermNameOps(name: TermName) {
 
     /**
-     * If the name is that of a local val/var, remove the (internal) suffix indicating this,
-     * giving the name of the associated getter.
+     * If the name is that of a local val/var, remove the (internal) suffix indicating this, giving the name of the
+     * associated getter.
      */
     def normalize: TermName =
       TermName(normalizeString)
