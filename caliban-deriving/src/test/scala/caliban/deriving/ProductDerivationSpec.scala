@@ -90,14 +90,14 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
         |
         |scalar Long
         |
-        |input ExampleProductInput {
+        |input EPInput {
         |  name: String!
         |  "A list of the character's nicknames"
         |  nicknames: [String!]!
         |}
         |
         |type ExampleProduct2 {
-        |  something(p: ExampleProductInput!): Long!
+        |  something(p: EPInput!): Long!
         |}""".stripMargin
   }
 
