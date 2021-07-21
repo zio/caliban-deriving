@@ -175,104 +175,107 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     }
   }
 
-  def deriveStepWithName(resolveValue: Expr[T], envType: TypeRepr, field: Field): Expr[(String, Step[R])] = {
-    val info       = extractInfo(field.field, field.constructorParameter)
-    val returnType = getReturnType(field.typ)
-    val schema     = summonSchema(envType, returnType)
-    val fieldName  = field.field.name
+  def deriveStep(resolveValue: Expr[T], envType: TypeRepr, field: Field): Expr[Step[R]] = {
 
+    val info           = extractInfo(field.field, field.constructorParameter)
+    val returnType     = getReturnType(field.typ)
+    val schema         = summonSchema(envType, returnType)
     val firstParamList = field.field.paramSymss.headOption // NOTE: multiple parameter lists are not supported
 
-    val step =
-      returnType.asType match {
-        case '[t] =>
-          firstParamList.filterNot(_.isEmpty) match {
-            case Some(params) =>
-              // Non-empty list of parameters
+    returnType.asType match {
+      case '[t] =>
+        firstParamList.filterNot(_.isEmpty) match {
+          case Some(params) =>
+            // Non-empty list of parameters
 
-              def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
-                val terms = params.map { param =>
-                  // println(s"${param.name}: ${param.tree}")
-                  val paramType  = param.tree.asInstanceOf[ValDef].tpt.tpe
-                  val argBuilder = summonArgBuilder(paramType)
-                  '{ ${ argBuilder }.build(${ args }(${ Expr(param.name) })) }.asTerm
-                }
+            def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
+              val terms = params.map { param =>
+                // println(s"${param.name}: ${param.tree}")
+                val paramType  = param.tree.asInstanceOf[ValDef].tpt.tpe
+                val argBuilder = summonArgBuilder(paramType)
+                '{ ${ argBuilder }.build(${ args }(${ Expr(param.name) })) }.asTerm
+              }
 
-                // // println(terms.map(_.show))
+              // // println(terms.map(_.show))
 
-                def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using
-                  Quotes
-                ): Expr[Either[ExecutionError, t]] =
-                  remaining match {
-                    case Nil                         =>
-                      val call = Apply(Select(resolveValue.asTerm, field.field), paramRefs.reverse).asExprOf[t]
-                      '{ Right[ExecutionError, t]($call) }.asExprOf[Either[ExecutionError, t]]
-                    case (headSym, headTerm) :: tail =>
-                      val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
-                      headType.asType match {
-                        case '[ht] =>
-                          // println(s"headType: ${headType.show}")
-                          // println(s"headTerm: ${headTerm.show}")
-                          val anonFun = Symbol.newMethod(
-                            Symbol.spliceOwner,
-                            "anonFun",
-                            MethodType(List(headSym.name))(
-                              (_: MethodType) => List(headType),
-                              (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]
+              def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using
+                Quotes
+              ): Expr[Either[ExecutionError, t]] =
+                remaining match {
+                  case Nil                         =>
+                    val call = Apply(Select(resolveValue.asTerm, field.field), paramRefs.reverse).asExprOf[t]
+                    '{ Right[ExecutionError, t]($call) }.asExprOf[Either[ExecutionError, t]]
+                  case (headSym, headTerm) :: tail =>
+                    val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
+                    headType.asType match {
+                      case '[ht] =>
+                        // println(s"headType: ${headType.show}")
+                        // println(s"headTerm: ${headTerm.show}")
+                        val anonFun = Symbol.newMethod(
+                          Symbol.spliceOwner,
+                          "anonFun",
+                          MethodType(List(headSym.name))(
+                            (_: MethodType) => List(headType),
+                            (_: MethodType) => TypeRepr.of[Either[ExecutionError, t]]
+                          )
+                        )
+
+                        val term = Select
+                          .unique(headTerm, "flatMap")
+                          .appliedToTypes(List(TypeRepr.of[ExecutionError], returnType))
+                          .appliedTo(
+                            Block(
+                              List(
+                                DefDef(
+                                  anonFun,
+                                  { case List(List(paramTerm: Term)) =>
+                                    Some(
+                                      unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm
+                                        .changeOwner(anonFun)
+                                    )
+                                  }
+                                )
+                              ),
+                              Closure(Ref(anonFun), None)
                             )
                           )
+                          .asExprOf[Either[ExecutionError, t]]
 
-                          val term = Select
-                            .unique(headTerm, "flatMap")
-                            .appliedToTypes(List(TypeRepr.of[ExecutionError], returnType))
-                            .appliedTo(
-                              Block(
-                                List(
-                                  DefDef(
-                                    anonFun,
-                                    { case List(List(paramTerm: Term)) =>
-                                      Some(
-                                        unwrap(paramTerm.asExprOf[ht].asTerm :: paramRefs, tail).asTerm
-                                          .changeOwner(anonFun)
-                                      )
-                                    }
-                                  )
-                                ),
-                                Closure(Ref(anonFun), None)
-                              )
-                            )
-                            .asExprOf[Either[ExecutionError, t]]
-
-                          // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
-                          term
-                      }
-                  }
-
-                unwrap(Nil, params zip terms)
-              }
-
-              '{
-                FunctionStep { args =>
-                  ${ buildArgs('args) } match {
-                    case Left(error)  => QueryStep(ZQuery.fail(error))
-                    case Right(value) => ${ schema.asExprOf[Schema[R, t]] }.resolve(value)
-                  }
-                }
-              }
-            case None         =>
-              println(s"resolveValue = ${resolveValue.show}; field = ${field.field.name}")
-
-              val invoke =
-                if (firstParamList == Some(Nil)) Apply(Select(resolveValue.asTerm, field.field), List()).asExprOf[t]
-                else {
-                  val selector = Select(resolveValue.asTerm, field.field).asExprOf[t]
-                  println(s"selector = ${selector.show}")
-                  selector
+                        // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
+                        term
+                    }
                 }
 
-              '{ ${ schema.asExprOf[Schema[R, t]] }.resolve(${ invoke }) }
-          }
-      }
+              unwrap(Nil, params zip terms)
+            }
+
+            '{
+              FunctionStep { args =>
+                ${ buildArgs('args) } match {
+                  case Left(error)  => QueryStep(ZQuery.fail(error))
+                  case Right(value) => ${ schema.asExprOf[Schema[R, t]] }.resolve(value)
+                }
+              }
+            }
+          case None         =>
+            println(s"resolveValue = ${resolveValue.show}; field = ${field.field.name}")
+
+            val invoke =
+              if (firstParamList == Some(Nil)) Apply(Select(resolveValue.asTerm, field.field), List()).asExprOf[t]
+              else {
+                val selector = Select(resolveValue.asTerm, field.field).asExprOf[t]
+                println(s"selector = ${selector.show}")
+                selector
+              }
+
+            '{ ${ schema.asExprOf[Schema[R, t]] }.resolve(${ invoke }) }
+        }
+    }
+  }
+
+  def deriveStepWithName(resolveValue: Expr[T], envType: TypeRepr, field: Field): Expr[(String, Step[R])] = {
+    val fieldName = field.field.name
+    val step      = deriveStep(resolveValue, envType, field)
 
     '{
       (
@@ -381,6 +384,83 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       case Bind(_, pattern: Term) => pattern.tpe
     }
 
+  def deriveInterface(
+    info: GraphQLInfo,
+    envType: TypeRepr,
+    fields: List[Field],
+    subtypeInOuts: Map[Symbol, (List[Field], List[Field])]
+  ): Expr[caliban.introspection.adt.__Type] = {
+    val fieldExprs: List[Expr[caliban.introspection.adt.__Field]] =
+      fields.map { field =>
+        deriveField(envType, field)
+      }
+    val subtypeExprs                                              =
+      subtypeInOuts.map { case (subtype, (_, outs)) =>
+        val subtypeInfo = extractInfo(subtype, None)
+        deriveObject(envType, subtypeInfo, outs)
+      }.toList
+
+    '{
+      caliban.schema.Types.makeInterface(
+        Some(${ info.name }),
+        ${ info.description },
+        () => List(${ Varargs(fieldExprs) }: _*),
+        List(${ Varargs(subtypeExprs) }: _*)
+      )
+    }
+  }
+
+  def deriveUnion(
+    info: GraphQLInfo,
+    envType: TypeRepr,
+    subtypeInOuts: Map[Symbol, (List[Field], List[Field])]
+  ): Expr[caliban.introspection.adt.__Type] = {
+    val subtypeExprs =
+      subtypeInOuts.map { case (subtype, (_, outs)) =>
+        val subtypeInfo = extractInfo(subtype, None)
+        deriveObject(envType, subtypeInfo, outs)
+      }.toList
+
+    '{
+      caliban.schema.Types.makeUnion(
+        Some(${ info.name }),
+        ${ info.description },
+        List(${ Varargs(subtypeExprs) }: _*)
+      )
+    }
+  }
+
+  def deriveEnumValue(subtype: Symbol): Expr[caliban.introspection.adt.__EnumValue] = {
+    val subtypeInfo = extractInfo(subtype, None)
+    '{
+      caliban.introspection.adt.__EnumValue(
+        name = ${ subtypeInfo.name },
+        description = ${ subtypeInfo.description },
+        isDeprecated = ${ subtypeInfo.isDeprecated },
+        deprecationReason = ${ subtypeInfo.deprecationReason }
+      )
+    }
+  }
+
+  def deriveEnum(
+    info: GraphQLInfo,
+    subtypeInOuts: Map[Symbol, (List[Field], List[Field])]
+  ): Expr[caliban.introspection.adt.__Type] = {
+    val enumValues =
+      subtypeInOuts.map { case (subtype, _) =>
+        deriveEnumValue(subtype)
+      }.toList
+
+    '{
+      caliban.schema.Types.makeEnum(
+        Some(${ info.name }),
+        ${ info.description },
+        List(${ Varargs(enumValues) }: _*),
+        None
+      )
+    }
+  }
+
   def deriveSum(envType: TypeRepr, targetSym: Symbol, targetType: TypeRepr): Expr[Schema[R, T]] = {
     val subclasses = findLeafConstructors(targetSym)
     val outputs    = getAllFields(targetSym, targetType)
@@ -408,10 +488,39 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
     println(s"$isEnum / $isUnion / $isInterface")
 
+    def generateResolveMatch(value: Expr[T])(using Quotes): Expr[caliban.schema.Step[R]] =
+      Match(
+        value.asTerm,
+        subclassInOut.map { case (subclass, (_, outs)) =>
+          val subclassType = getSubclassType(subclass.tree)
+          val subclassInfo = extractInfo(subclass, None)
+          val sym          = Symbol.newBind(Symbol.spliceOwner, "x", Flags.EmptyFlags, subclassType)
+          val pattern      = Bind(sym, subclass.tree)
+          val rhs          = '{
+            ObjectStep.apply[R](
+              ${ subclassInfo.name },
+              List(${ Varargs(outs.map(field => deriveStepWithName(Ref(sym).asExprOf[T], envType, field))) }: _*).toMap
+            )
+          }
+
+          CaseDef(pattern, None, rhs.asTerm)
+        }.toList
+      ).asExprOf[caliban.schema.Step[R]]
+
     '{
       new Schema[R, T] {
-        def resolve(value: T): caliban.schema.Step[R]                                                           = ???
-        protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type = ???
+        def resolve(value: T): caliban.schema.Step[R]                                                           =
+          ${ generateResolveMatch('{ value }) }
+        protected[this] def toType(isInput: Boolean, isSubscription: Boolean): caliban.introspection.adt.__Type =
+          ${
+            if (isInterface) {
+              deriveInterface(info, envType, outputs, subclassInOut)
+            } else if (isUnion) {
+              deriveUnion(info, envType, subclassInOut)
+            } else {
+              deriveEnum(info, subclassInOut)
+            }
+          }
       }
     }
   }
@@ -436,9 +545,9 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     } else {
       deriveSum(envType, targetSym, targetType)
     }
-  // println("---------")
-  // println(result.show)
-  // println("---------")
+//   println("---------")
+//   println(result.show)
+//   println("---------")
 
   result
 }
