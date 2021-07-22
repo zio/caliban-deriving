@@ -60,7 +60,7 @@ object BuildHelper {
 
   def buildInfoSettings(packageName: String) =
     Seq(
-      buildInfoKeys := Seq[BuildInfoKey](organization, moduleName, name, version, scalaVersion, sbtVersion, isSnapshot),
+      buildInfoKeys    := Seq[BuildInfoKey](organization, moduleName, name, version, scalaVersion, sbtVersion, isSnapshot),
       buildInfoPackage := packageName
     )
 
@@ -68,7 +68,7 @@ object BuildHelper {
     crossScalaVersions += ScalaDotty,
     scalacOptions ++= {
       if (scalaVersion.value == ScalaDotty)
-        Seq("-noindent")
+        Seq("-noindent", "-Xcheck-macros")
       else
         Seq()
     },
@@ -78,7 +78,7 @@ object BuildHelper {
       else
         Seq()
     },
-    Compile / doc / sources := {
+    Compile / doc / sources  := {
       val old = (Compile / doc / sources).value
       if (scalaVersion.value == ScalaDotty) {
         Nil
@@ -128,7 +128,7 @@ object BuildHelper {
     // One of -Ydelambdafy:inline or -Yrepl-class-based must be given to
     // avoid deadlocking on parallel operations, see
     //   https://issues.scala-lang.org/browse/SI-9076
-    Compile / console / scalacOptions := Seq(
+    Compile / console / scalacOptions   := Seq(
       "-Ypartial-unification",
       "-language:higherKinds",
       "-language:existentials",
@@ -229,10 +229,10 @@ object BuildHelper {
   )
 
   def stdSettings(prjName: String) = Seq(
-    name := s"$prjName",
-    crossScalaVersions := Seq(Scala212, Scala213),
-    ThisBuild / scalaVersion := Scala213,
-    scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
+    name                                   := s"$prjName",
+    crossScalaVersions                     := Seq(Scala212, Scala213),
+    ThisBuild / scalaVersion               := ScalaDotty,
+    scalacOptions                          := stdOptions ++ extraOptions(scalaVersion.value, optimize = !isSnapshot.value),
     libraryDependencies ++= {
       if (scalaVersion.value == ScalaDotty)
         Seq(
@@ -244,17 +244,17 @@ object BuildHelper {
           compilerPlugin("com.github.ghik" % "silencer-plugin" % SilencerVersion cross CrossVersion.full)
         )
     },
-    semanticdbEnabled := scalaVersion.value != ScalaDotty, // enable SemanticDB
+    semanticdbEnabled                      := scalaVersion.value != ScalaDotty, // enable SemanticDB
     semanticdbOptions += "-P:semanticdb:synthetics:on",
-    semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+    semanticdbVersion                      := scalafixSemanticdb.revision, // use Scalafix compatible version
     ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
     ThisBuild / scalafixDependencies ++= List(
       "com.github.liancheng" %% "organize-imports" % "0.5.0",
       "com.github.vovapolu"  %% "scaluzzi"         % "0.1.18"
     ),
-    Test / parallelExecution := true,
+    Test / parallelExecution               := true,
     incOptions ~= (_.withLogRecompileOnMacro(false)),
-    autoAPIMappings := true,
+    autoAPIMappings                        := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
 
@@ -292,8 +292,8 @@ object BuildHelper {
   )
 
   def nativeSettings = Seq(
-    Test / test := (Test / compile).value,
-    doc / skip := true,
+    Test / test             := (Test / compile).value,
+    doc / skip              := true,
     Compile / doc / sources := Seq.empty
   )
 

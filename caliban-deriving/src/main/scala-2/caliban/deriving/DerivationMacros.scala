@@ -5,9 +5,8 @@ import caliban.deriving.annotations.GQLExclude
 import scala.reflect.macros.blackbox
 
 /**
- * Macro bundle for deriving instances of Schema for concrete classes,
- * representing public members as either regular fields or functions, depending on whether or not
- * the member takes parameters.
+ * Macro bundle for deriving instances of Schema for concrete classes, representing public members as either regular
+ * fields or functions, depending on whether or not the member takes parameters.
  */
 class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
   import c.universe._
@@ -136,8 +135,8 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
   /**
    * Retrieve the underlying symbol for the accessor that holds the annotations
    *
-   * For a case class parameter, this will be the corresponding constructor parameter,
-   * and for regular vals/vars it will be the underlying val/var symbol.
+   * For a case class parameter, this will be the corresponding constructor parameter, and for regular vals/vars it will
+   * be the underlying val/var symbol.
    */
   private def underlyingField(tpe: Type, ms: MethodSymbol): TermSymbol =
     if (ms.isCaseAccessor) {
@@ -152,7 +151,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
         case sym: TermSymbol if sym.name.normalizeString == ms.nameString => sym
       } match {
         case Some(value) => value
-        case None        => c.abort(c.enclosingPosition, s"incompatible underlying field ${ms}: ${tpe.decls}")
+        case None        => c.abort(c.enclosingPosition, s"incompatible underlying field $ms: ${tpe.decls}")
       }
     }
 
@@ -294,7 +293,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
   }
 
   private def mergeEnvironments(members: List[TermSymbol]): Type = {
-    val envTypes = members.map(m => DeriveMember(m, typeRefs.Any).envType).toSet - typeRefs.Any
+    val envTypes = members.map(m => DeriveMember(m, typeRefs.Any).detectedEnvType).toSet - typeRefs.Any
     if (envTypes.nonEmpty) {
       envTypes.reduce((a, b) => tq"$a with $b".tpe)
     } else {
@@ -311,7 +310,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
     if (!(requestedEnv <:< requestedEnv)) {
       c.warning(
         c.enclosingPosition,
-        s"deriveSchema was called with environment ${requestedEnv} but there are members in the derived type is using ${envType}!"
+        s"deriveSchema was called with environment $requestedEnv but there are members in the derived type is using $envType!"
       )
     }
 

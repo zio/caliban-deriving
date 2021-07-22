@@ -6,21 +6,17 @@ import caliban.schema.Schema
 import caliban.{GraphQL, RootResolver}
 import zio.test._
 import zio.test.environment._
+import caliban.deriving.EnumDerivationSpec.ExampleSum
 
-object InterfaceDerivationSpec extends DefaultRunnableSpec {
-  sealed trait ExampleSum {
-    def x: Int
-    @GQLDescription("the y field")
-    val y: String
-  }
-  object ExampleSum       {
-    case class A(z: Option[Int]) extends ExampleSum {
-      override def x: Int    = z.getOrElse(1)
-      override val y: String = "A"
-    }
+object Scala3InterfaceDerivationSpec extends DefaultRunnableSpec {
+  enum ExampleSum(
+    val x: Int,
+    @GQLDescription("the y field") val y: String
+  ) {
 
-    @GQLDescription("the B")
-    case class B(x: Int, y: String) extends ExampleSum
+    case A(z: Option[Int]) extends ExampleSum(z.getOrElse(1), "A")
+
+    @GQLDescription("the B") case B(override val x: Int, override val y: String) extends ExampleSum(x, y)
   }
 
   implicit lazy val exampleSumSchema: Schema[Any, ExampleSum] = deriveSchemaInstance[Any, ExampleSum]
@@ -53,7 +49,7 @@ object InterfaceDerivationSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[TestEnvironment, Any] =
     suite("Caliban Derivation")(
-      suite("Sum type with common fields")(
+      suite("Scala 3 enum with common fields")(
         test("schema rendered as expected") {
           val rendered = api.render
 

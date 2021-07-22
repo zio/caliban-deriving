@@ -41,5 +41,5 @@ object EnumDerivationSpec extends DefaultRunnableSpec {
           assertTrue(rendered == expectedSchema)
         }
       )
-    ) @@ TestAspect.exceptDotty
+    )
 }

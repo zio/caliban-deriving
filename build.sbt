@@ -2,10 +2,10 @@ import BuildHelper._
 
 inThisBuild(
   List(
-    organization := "dev.zio",
-    homepage := Some(url("https://zio.github.io/caliban-deriving/")),
-    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
-    developers := List(
+    organization  := "dev.zio",
+    homepage      := Some(url("https://zio.github.io/caliban-deriving/")),
+    licenses      := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    developers    := List(
       Developer(
         "jdegoes",
         "John De Goes",
@@ -35,13 +35,12 @@ addCommandAlias(
 )
 
 val zioVersion     = "1.0.9"
-val calibanVersion = "1.0.1"
+val calibanVersion = "1.1.0"
 
 lazy val root = project
   .in(file("."))
   .settings(
-    publish / skip := true,
-    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
+    publish / skip := true
   )
   .aggregate(
     calibanDeriving,
@@ -68,15 +67,15 @@ lazy val docs = project
   .in(file("caliban-deriving-docs"))
   .settings(stdSettings("caliban-deriving"))
   .settings(
-    publish / skip := true,
-    moduleName := "caliban-deriving-docs",
+    publish / skip                             := true,
+    moduleName                                 := "caliban-deriving-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(calibanDeriving),
-    ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
+    ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
     cleanFiles += (ScalaUnidoc / unidoc / target).value,
-    docusaurusCreateSite := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
-    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
+    docusaurusCreateSite                       := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
+    docusaurusPublishGhpages                   := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
   )
   .dependsOn(calibanDeriving)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
