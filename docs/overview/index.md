@@ -31,8 +31,6 @@ Please read [Caliban's official documentation about schemas](https://ghostdogpr.
 
 It is important that it is possible to use a _mix_ of Caliban's built-in schemas, auto-derived schemas and the ones provided by `deriveSchemaInstance`. Both derive methods are looking for implicit instances of `Schema`.
 
-**NOTE: The Scala 3 derive macro is work in progress and not usable yet**
-
 ## Features
 
 Caliban Deriving's `deriveSchemaInstance` function can be applied on the following Scala data types:
