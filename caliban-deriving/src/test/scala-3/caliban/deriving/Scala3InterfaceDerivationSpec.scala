@@ -56,5 +56,5 @@ object Scala3InterfaceDerivationSpec extends DefaultRunnableSpec {
           assertTrue(rendered == expectedSchema)
         }
       )
-    ) @@ TestAspect.exceptDotty
+    )
 }

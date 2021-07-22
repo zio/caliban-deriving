@@ -60,5 +60,5 @@ object InterfaceDerivationSpec extends DefaultRunnableSpec {
           assertTrue(rendered == expectedSchema)
         }
       )
-    ) @@ TestAspect.exceptDotty
+    )
 }

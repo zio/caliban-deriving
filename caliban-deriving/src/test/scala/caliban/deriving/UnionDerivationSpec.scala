@@ -51,5 +51,5 @@ object UnionDerivationSpec extends DefaultRunnableSpec {
           assertTrue(rendered == expectedSchema)
         }
       )
-    ) @@ TestAspect.exceptDotty
+    )
 }

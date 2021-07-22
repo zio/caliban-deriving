@@ -52,10 +52,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     }
 
   def extractInfo(symbol: Symbol, altSymbol: Option[Symbol]): GraphQLInfo = {
-    println(
-      s"Symbol ${symbol.name} annotations: ${symbol.annotations} / alternative annotations: ${altSymbol.map(_.annotations)}"
-    )
-
     val nameAnnotation                             = extractStringAnnotation[GQLName](symbol, altSymbol)
     val inputNameAnnotation                        = extractStringAnnotation[GQLInputName](symbol, altSymbol)
     val descriptionAnnotation                      = extractStringAnnotation[GQLDescription](symbol, altSymbol)
@@ -190,13 +186,10 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
             def buildArgs(args: Expr[Map[String, InputValue]])(using Quotes): Expr[Either[ExecutionError, t]] = {
               val terms = params.map { param =>
-                // println(s"${param.name}: ${param.tree}")
                 val paramType  = param.tree.asInstanceOf[ValDef].tpt.tpe
                 val argBuilder = summonArgBuilder(paramType)
                 '{ ${ argBuilder }.build(${ args }(${ Expr(param.name) })) }.asTerm
               }
-
-              // // println(terms.map(_.show))
 
               def unwrap(paramRefs: List[Term], remaining: List[(Symbol, Term)])(using
                 Quotes
@@ -209,8 +202,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                     val headType = headSym.tree.asInstanceOf[ValDef].tpt.tpe
                     headType.asType match {
                       case '[ht] =>
-                        // println(s"headType: ${headType.show}")
-                        // println(s"headTerm: ${headTerm.show}")
                         val anonFun = Symbol.newMethod(
                           Symbol.spliceOwner,
                           "anonFun",
@@ -240,8 +231,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
                             )
                           )
                           .asExprOf[Either[ExecutionError, t]]
-
-                        // println(s"=> ${term.asTerm.show(using Printer.TreeStructure)}")
                         term
                     }
                 }
@@ -258,14 +247,10 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
               }
             }
           case None         =>
-            println(s"resolveValue = ${resolveValue.show}; field = ${field.field.name}")
-
             val invoke =
               if (firstParamList == Some(Nil)) Apply(Select(resolveValue.asTerm, field.field), List()).asExprOf[t]
               else {
-                val selector = Select(resolveValue.asTerm, field.field).asExprOf[t]
-                println(s"selector = ${selector.show}")
-                selector
+                Select(resolveValue.asTerm, field.field).asExprOf[t]
               }
 
             '{ ${ schema.asExprOf[Schema[R, t]] }.resolve(${ invoke }) }
@@ -347,9 +332,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     val allFields   = getAllFields(targetSym, targetType)
     val info        = extractInfo(targetSym, None)
 
-    println(s"For ${targetSym.name} input fields are ${inputFields.map(_._1.name)}")
-    println(s"For ${targetSym.name} all fields are ${allFields.map(_._1.name)}")
-
     '{
       new Schema[R, T] {
         def resolve(value: T): caliban.schema.Step[R] =
@@ -401,12 +383,13 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       }.toList
 
     '{
-      caliban.schema.Types.makeInterface(
+      lazy val iface: caliban.introspection.adt.__Type = caliban.schema.Types.makeInterface(
         Some(${ info.name }),
         ${ info.description },
         () => List(${ Varargs(fieldExprs) }: _*),
-        List(${ Varargs(subtypeExprs) }: _*)
+        List(${ Varargs(subtypeExprs) }: _*).map(_.copy(interfaces = () => Some(List(iface))))
       )
+      iface
     }
   }
 
@@ -466,18 +449,11 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     val outputs    = getAllFields(targetSym, targetType)
     val info       = extractInfo(targetSym, None)
 
-    println(s"For ${targetSym.name} all fields are ${outputs.map(_._1.name)}")
-    println(s"For ${targetSym.name} constructors are $subclasses")
-
     val subclassInOut =
       subclasses.map { subclass =>
         val subclassType = getSubclassType(subclass.tree)
         val inputs       = getInputFields(subclass, subclassType)
         val outputs      = getAllFields(subclass, subclassType)
-
-        println(s"For ${targetSym.name}'s subclass ${subclass.name} input fields are ${inputs.map(_._1.name)}")
-        println(s"For ${targetSym.name}'s subclass ${subclass.name} output fields are ${outputs.map(_._1.name)}")
-        println(s"For ${targetSym.name}'s subclass ${subclass.name} type is ${subclassType.show}")
 
         (subclass, (inputs, outputs))
       }.toMap
@@ -486,8 +462,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     val isUnion     = !isEnum && outputs.isEmpty
     val isInterface = !isEnum && !isUnion
 
-    println(s"$isEnum / $isUnion / $isInterface")
-
     def generateResolveMatch(value: Expr[T])(using Quotes): Expr[caliban.schema.Step[R]] =
       Match(
         value.asTerm,
@@ -495,7 +469,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
           val subclassType = getSubclassType(subclass.tree)
           val subclassInfo = extractInfo(subclass, None)
           val sym          = Symbol.newBind(Symbol.spliceOwner, "x", Flags.EmptyFlags, subclassType)
-          val pattern      = Bind(sym, subclass.tree)
+          val pattern      = Bind(sym, Typed(Ref(sym), TypeIdent(subclassType.typeSymbol)))
           val rhs          = '{
             ObjectStep.apply[R](
               ${ subclassInfo.name },
@@ -530,10 +504,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
   val targetTree = TypeTree.of[T]
   val targetSym  = targetTree.symbol
 
-  println(s"env type: ${envType.show}")
-  println(s"target type: $targetSym")
-  println(s"target flags: ${targetSym.flags.show}")
-
   val isCaseClass   = targetSym.flags.is(Flags.Case)
   val isSealedTrait =
     (targetSym.flags.is(Flags.Trait) && targetSym.flags.is(Flags.Sealed)) || (targetSym.flags.is(Flags.Enum))
@@ -545,9 +515,6 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
     } else {
       deriveSum(envType, targetSym, targetType)
     }
-//   println("---------")
-//   println(result.show)
-//   println("---------")
 
   result
 }
