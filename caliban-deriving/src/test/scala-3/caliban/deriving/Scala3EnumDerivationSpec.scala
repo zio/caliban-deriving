@@ -31,7 +31,7 @@ object Scala3EnumDerivationSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[TestEnvironment, Any] =
     suite("Caliban Derivation")(
-      suite("Sum type without common fields")(
+      suite("Scala 3 enum without common fields")(
         test("schema rendered as expected") {
           val rendered = api.render
 

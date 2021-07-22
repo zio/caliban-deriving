@@ -49,7 +49,7 @@ object Scala3InterfaceDerivationSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[TestEnvironment, Any] =
     suite("Caliban Derivation")(
-      suite("Sum type with common fields")(
+      suite("Scala 3 enum with common fields")(
         test("schema rendered as expected") {
           val rendered = api.render
 

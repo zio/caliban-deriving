@@ -316,16 +316,27 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       .map(field => Field(field, None, targetType.memberType(field)))
       .map(field => enrichWithConstructorField(targetSym, field))
 
-  def getAllFields(targetSym: Symbol, targetType: TypeRepr): List[Field] =
-    (targetSym.declaredFields ++ targetSym.declaredMethods).filter { field =>
+  def getAllFields(targetSym: Symbol, targetType: TypeRepr): List[Field] = {
+    val ordering = targetSym.declarations.zipWithIndex.toMap
+    (targetSym.memberFields ++ targetSym.memberMethods).filter { field =>
       !field.flags.is(Flags.Artifact) &&
       !field.flags.is(Flags.Synthetic) &&
       !field.flags.is(Flags.Protected) &&
       !field.flags.is(Flags.Private)
     }
       .filterNot(isExcluded)
+      .filterNot { member =>
+        member.owner.fullName == "java.lang.Object" ||
+        member.owner.fullName == "scala.Any" ||
+        member.owner.fullName == "scala.Product" ||
+        member.owner.fullName == "scala.reflect.Enum" ||
+        member.owner.fullName == "scala.Equals" ||
+        member.owner.fullName == "scala.deriving.Mirror$.Singleton"
+      }
+      .sortBy(member => ordering.get(member).getOrElse(Int.MaxValue))
       .map(field => Field(field, None, targetType.memberType(field)))
       .map(field => enrichWithConstructorField(targetSym, field))
+  }
 
   def deriveProduct(envType: TypeRepr, targetSym: Symbol, targetType: TypeRepr): Expr[Schema[R, T]] = {
     val inputFields = getInputFields(targetSym, targetType)
