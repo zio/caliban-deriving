@@ -317,7 +317,16 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
       .map(field => enrichWithConstructorField(targetSym, field))
 
   def getAllFields(targetSym: Symbol, targetType: TypeRepr): List[Field] = {
-    val ordering = targetSym.declarations.zipWithIndex.toMap
+    val ordering          = targetSym.declarations.zipWithIndex.toMap
+    val supertypeOrdering =
+      (targetSym.memberFields ++ targetSym.memberMethods)
+        .filterNot(ordering.contains)
+        .groupBy(_.owner)
+        .flatMap { case (owner, _) =>
+          owner.declarations.zipWithIndex.map { case (k, idx) => k -> (idx + 1000) }
+        }
+        .toMap
+
     (targetSym.memberFields ++ targetSym.memberMethods).filter { field =>
       !field.flags.is(Flags.Artifact) &&
       !field.flags.is(Flags.Synthetic) &&
@@ -333,7 +342,12 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
         member.owner.fullName == "scala.Equals" ||
         member.owner.fullName == "scala.deriving.Mirror$.Singleton"
       }
-      .sortBy(member => ordering.get(member).getOrElse(Int.MaxValue))
+      .sortBy { member =>
+        ordering
+          .get(member)
+          .orElse(supertypeOrdering.get(member))
+          .getOrElse(Int.MaxValue)
+      }
       .map(field => Field(field, None, targetType.memberType(field)))
       .map(field => enrichWithConstructorField(targetSym, field))
   }
