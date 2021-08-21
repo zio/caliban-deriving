@@ -34,7 +34,7 @@ addCommandAlias(
   ";calibanDeriving/test"
 )
 
-val zioVersion     = "1.0.10"
+val zioVersion     = "1.0.11"
 val calibanVersion = "1.1.1"
 
 lazy val root = project
