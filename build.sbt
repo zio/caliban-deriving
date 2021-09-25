@@ -37,7 +37,7 @@ addCommandAlias(
 val zioVersion     = "1.0.12"
 val calibanVersion = "1.1.1"
 
-lazy val root = project
+lazy val root            = project
   .in(file("."))
   .settings(
     publish / skip := true
@@ -63,7 +63,7 @@ lazy val calibanDeriving = project
   .settings(testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"))
   .enablePlugins(BuildInfoPlugin)
 
-lazy val docs = project
+lazy val docs            = project
   .in(file("caliban-deriving-docs"))
   .settings(stdSettings("caliban-deriving"))
   .settings(
