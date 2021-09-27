@@ -29,7 +29,7 @@ trait CalibanUtils extends MacroUtils {
     private val GQLDirectiveType   = OneArgumentAnnotation[GQLDirective]
     private val GQLInputNameType   = OneArgumentAnnotation[GQLInputName]
 
-    private def getName(s: Symbol): Tree = {
+    private def getName(s: Symbol): Tree        = {
       val default =
         if (s.isType) {
           mkConst(s.nameString + s.asType.typeParams.map(_.nameString).mkString)
@@ -50,7 +50,7 @@ trait CalibanUtils extends MacroUtils {
         q"Some($reason)"
       }.getOrElse(q"None")
 
-    private def getDirectives(s: Symbol): Tree = {
+    private def getDirectives(s: Symbol): Tree  = {
       val dirs = s.scalaAnnotations.collect { case GQLDirectiveType(dir) =>
         dir
       }
@@ -58,7 +58,7 @@ trait CalibanUtils extends MacroUtils {
       q"List(..$dirs)"
     }
 
-    private def getInputName(s: Symbol): Tree =
+    private def getInputName(s: Symbol): Tree   =
       s.scalaAnnotations.collectFirst { case GQLInputNameType(name) =>
         name
       }.getOrElse(q"${refs.customizeInputTypeName}(${getName(s)})")
@@ -70,7 +70,7 @@ trait CalibanUtils extends MacroUtils {
     }
   }
 
-  protected object refs {
+  protected object refs        {
     val __Field: RefTree                = companionRef[caliban.introspection.adt.__Field]
     val __InputValue: RefTree           = companionRef[caliban.introspection.adt.__InputValue]
     val customizeInputTypeName: RefTree = companionRef[caliban.schema.Schema[_, _]].select("customizeInputTypeName")
@@ -86,7 +86,7 @@ trait CalibanUtils extends MacroUtils {
     val ZQuery: RefTree                 = companionRef[ZQuery[_, _, _]]
   }
 
-  protected object typeRefs {
+  protected object typeRefs    {
     val __Type: Type = typeOf[caliban.introspection.adt.__Type]
     val Any: Type    = typeOf[Any]
     val Zio: Type    = typeOf[zio.ZIO[_, _, _]]

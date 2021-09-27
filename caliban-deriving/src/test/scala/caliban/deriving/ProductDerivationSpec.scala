@@ -59,7 +59,7 @@ object ProductDerivationSpec extends DefaultRunnableSpec {
     )
     lazy val api: GraphQL[Random]    = graphQL(RootResolver(exampleValue))
 
-    val expectedSchema: String =
+    val expectedSchema: String                                               =
       """schema {
         |  query: EP
         |}

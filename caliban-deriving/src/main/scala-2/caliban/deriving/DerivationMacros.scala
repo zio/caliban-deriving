@@ -24,8 +24,8 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
       if (sym.isMethod) sym.asMethod.paramLists.headOption
       else None
 
-    private val scalaType: Type = if (sym.isMethod) sym.asMethod.returnType else sym.typeSignature
-    val detectedEnvType: Type   = detectEnvironment(scalaType)
+    private val scalaType: Type              = if (sym.isMethod) sym.asMethod.returnType else sym.typeSignature
+    val detectedEnvType: Type                = detectEnvironment(scalaType)
 
     private val info: GraphQLInfo = GraphQLInfo(sym)
 
@@ -129,7 +129,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
       !sym.isConstructor &&
       !sym.isSynthetic
 
-  private def canDeriveInput(sym: TermSymbol): Boolean =
+  private def canDeriveInput(sym: TermSymbol): Boolean  =
     sym.isPublic && sym.isCaseAccessor
 
   /**
@@ -138,7 +138,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
    * For a case class parameter, this will be the corresponding constructor parameter, and for regular vals/vars it will
    * be the underlying val/var symbol.
    */
-  private def underlyingField(tpe: Type, ms: MethodSymbol): TermSymbol =
+  private def underlyingField(tpe: Type, ms: MethodSymbol): TermSymbol                          =
     if (ms.isCaseAccessor) {
       val cons = tpe.decls.collectFirst {
         case ms: MethodSymbol if ms.isPrimaryConstructor => ms
@@ -155,20 +155,20 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
       }
     }
 
-  private def inputFields(tpe: Type): List[TermSymbol] =
+  private def inputFields(tpe: Type): List[TermSymbol]                                          =
     tpe.decls.collect { case ms: MethodSymbol => ms }
       .filter(canDeriveInput)
       .map(underlyingField(tpe, _))
       .toList
 
-  private def outputFields(tpe: Type): List[TermSymbol] =
+  private def outputFields(tpe: Type): List[TermSymbol]                                         =
     tpe.decls.collect { case ms: MethodSymbol => ms }
       .filter(canDeriveOutput)
       .map(underlyingField(tpe, _))
       .filterNot(hasAnnotation[GQLExclude])
       .toList
 
-  private def deriveInputObject(info: GraphQLInfo, env: Type, inputs: List[TermSymbol]): Tree = {
+  private def deriveInputObject(info: GraphQLInfo, env: Type, inputs: List[TermSymbol]): Tree   = {
     val fields =
       inputs.map(i => DeriveMember(i, env).deriveParam)
 
@@ -292,7 +292,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
     """
   }
 
-  private def mergeEnvironments(members: List[TermSymbol]): Type = {
+  private def mergeEnvironments(members: List[TermSymbol]): Type                                = {
     val envTypes = members.map(m => DeriveMember(m, typeRefs.Any).detectedEnvType).toSet - typeRefs.Any
     if (envTypes.nonEmpty) {
       envTypes.reduce((a, b) => tq"$a with $b".tpe)
@@ -301,7 +301,7 @@ class DerivationMacros(val c: blackbox.Context) extends CalibanUtils {
     }
   }
 
-  private def deriveProductSchema(tpe: Type, requestedEnv: Type): Tree = {
+  private def deriveProductSchema(tpe: Type, requestedEnv: Type): Tree                          = {
     val inputs  = inputFields(tpe)
     val outputs = outputFields(tpe)
 
