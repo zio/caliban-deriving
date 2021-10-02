@@ -21,7 +21,7 @@ object EnumDerivationSpec extends DefaultRunnableSpec {
   lazy val exampleValue: ExampleSum = ExampleSum.A
   lazy val api: GraphQL[Any]        = graphQL(RootResolver(exampleValue))
 
-  val expectedSchema: String                     =
+  val expectedSchema: String =
     """schema {
       |  query: ExampleSum
       |}

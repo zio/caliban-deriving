@@ -21,7 +21,7 @@ import zio.query.ZQuery
 import caliban.wrappers.ApolloTracing.Execution
 import java.text.DateFormat.Field
 
-inline def deriveSchemaInstance[R, T]: Schema[R, T]                                      =
+inline def deriveSchemaInstance[R, T]: Schema[R, T] =
   ${ deriveSchemaInstanceImpl[R, T] }
 
 private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schema[R, T]] = {
@@ -359,7 +359,7 @@ private def deriveSchemaInstanceImpl[R: Type, T: Type](using Quotes): Expr[Schem
 
     '{
       new Schema[R, T] {
-        def resolve(value: T): caliban.schema.Step[R]                                                           =
+        def resolve(value: T): caliban.schema.Step[R] =
           ObjectStep.apply[R](
             ${ info.name },
             List(${ Varargs(allFields.map(field => deriveStepWithName('value, envType, field))) }: _*).toMap
