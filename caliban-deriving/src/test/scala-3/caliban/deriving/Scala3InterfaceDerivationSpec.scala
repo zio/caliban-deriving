@@ -24,7 +24,7 @@ object Scala3InterfaceDerivationSpec extends DefaultRunnableSpec {
   lazy val exampleValue: ExampleSum = ExampleSum.A(Some(10))
   lazy val api: GraphQL[Any]        = graphQL(RootResolver(exampleValue))
 
-  val expectedSchema: String                     =
+  val expectedSchema: String =
     """schema {
       |  query: ExampleSum
       |}

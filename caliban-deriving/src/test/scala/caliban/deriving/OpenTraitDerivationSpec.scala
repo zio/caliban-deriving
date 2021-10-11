@@ -53,10 +53,10 @@ object OpenTraitDerivationSpec extends DefaultRunnableSpec {
     ) extends ExampleInterface {
       override def foo(): Int = 5
 
-      override def query: ZQuery[Any, Nothing, String]                  =
+      override def query: ZQuery[Any, Nothing, String] =
         ZQuery.succeed(nicknames.mkString(", "))
 
-      override def op(pattern: String, limit: Int): List[String]        =
+      override def op(pattern: String, limit: Int): List[String] =
         nicknames.filter(_.matches(pattern)).take(limit)
 
       override def randomNickname: ZIO[Random, Nothing, Option[String]] =

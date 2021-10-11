@@ -26,7 +26,7 @@ object BuildHelper {
 
   val SilencerVersion = "1.7.6"
 
-  private val stdOptions                          = Seq(
+  private val stdOptions = Seq(
     "-deprecation",
     "-encoding",
     "UTF-8",
@@ -40,7 +40,7 @@ object BuildHelper {
     }
   }
 
-  private val std2xOptions                        = Seq(
+  private val std2xOptions = Seq(
     "-language:higherKinds",
     "-language:existentials",
     "-explaintypes",
@@ -209,7 +209,7 @@ object BuildHelper {
     platformSpecificSources(platform, conf, baseDir)(versions: _*)
   }
 
-  lazy val crossProjectSettings                                                             = Seq(
+  lazy val crossProjectSettings = Seq(
     Compile / unmanagedSourceDirectories ++= {
       crossPlatformSources(
         scalaVersion.value,
