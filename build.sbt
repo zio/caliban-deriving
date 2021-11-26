@@ -35,7 +35,7 @@ addCommandAlias(
 )
 
 val zioVersion     = "1.0.12"
-val calibanVersion = "1.2.4"
+val calibanVersion = "1.3.0"
 
 lazy val root = project
   .in(file("."))
