@@ -7,14 +7,14 @@
 # Summary
 
 # Documentation
-[Caliban Deriving Microsite](https://zio.github.io/caliban-deriving/)
+[Caliban Deriving Microsite](https://zio.dev/caliban-deriving/)
 
 # Contributing
-[Documentation for contributors](https://zio.github.io/caliban-deriving/docs/about/about_contributing)
+[Documentation for contributors](https://zio.dev/about/contributing)
 
 ## Code of Conduct
 
-See the [Code of Conduct](https://zio.github.io/caliban-deriving/docs/about/about_coc)
+See the [Code of Conduct](https://zio.dev/about/code-of-conduct)
 
 ## Support
 
