@@ -1,19 +1,19 @@
 ---
-id: overview_index
-title: "Summary"
+id: index
+title: "Introduction to Caliban Deriving"
+sidebar_label: "Caliban Deriving"
 ---
+
+Full-featured, robust deriving for Caliban.
+
+The Caliban Deriving library provides an advanced derive macro for the [Caliban library](https://github.com/ghostdogpr/caliban) that seamlessly integrates with the built-in schema derivation system and allows the library users to not only derive the schema for the user defined case classes and enums but also for calculated fields and functions with parameters.
 
 ## Getting started
 
 Start by adding `caliban-deriving` as a dependency to your project:
   
-```scala mdoc:passthrough
-    println(s"""```scala""")
-    if (caliban.deriving.BuildInfo.isSnapshot) {
-        println(s"""resolvers += Resolver.sonatypeRepo("snapshots")""")
-    }
-    println(s"""libraryDependencies += "dev.zio" %% "caliban-deriving" % "${caliban.deriving.BuildInfo.version}"""")
-    println(s"""```""")
+```scala
+libraryDependencies += "dev.zio" %% "caliban-deriving" % "@VERSION@"
 ```
 
 Once the library is added, Caliban's default auto-derived schemas can be replaced one by one for each type by explicitly deriving its
