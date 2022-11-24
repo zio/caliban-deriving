@@ -3,7 +3,7 @@ import BuildHelper._
 inThisBuild(
   List(
     organization  := "dev.zio",
-    homepage      := Some(url("https://zio.github.io/caliban-deriving/")),
+    homepage      := Some(url("https://zio.dev/caliban-deriving/")),
     licenses      := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     developers    := List(
       Developer(
@@ -43,8 +43,7 @@ lazy val root = project
     publish / skip := true
   )
   .aggregate(
-    calibanDeriving,
-    docs
+    calibanDeriving
   )
 
 lazy val calibanDeriving = project
@@ -67,15 +66,10 @@ lazy val docs = project
   .in(file("caliban-deriving-docs"))
   .settings(stdSettings("caliban-deriving"))
   .settings(
-    publish / skip                             := true,
-    moduleName                                 := "caliban-deriving-docs",
+    publish / skip := true,
+    moduleName     := "caliban-deriving-docs",
     scalacOptions -= "-Yno-imports",
-    scalacOptions -= "-Xfatal-warnings",
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(calibanDeriving),
-    ScalaUnidoc / unidoc / target              := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
-    cleanFiles += (ScalaUnidoc / unidoc / target).value,
-    docusaurusCreateSite                       := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
-    docusaurusPublishGhpages                   := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
+    scalacOptions -= "-Xfatal-warnings"
   )
   .dependsOn(calibanDeriving)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
+  .enablePlugins(WebsitePlugin)
