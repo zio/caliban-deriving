@@ -66,10 +66,14 @@ lazy val docs = project
   .in(file("caliban-deriving-docs"))
   .settings(stdSettings("caliban-deriving"))
   .settings(
-    publish / skip := true,
-    moduleName     := "caliban-deriving-docs",
+    moduleName                                 := "caliban-deriving-docs",
     scalacOptions -= "-Yno-imports",
-    scalacOptions -= "-Xfatal-warnings"
+    scalacOptions -= "-Xfatal-warnings",
+    projectName                                := "Caliban Deriving",
+    mainModuleName                             := (calibanDeriving / moduleName).value,
+    projectStage                               := ProjectStage.Development,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(calibanDeriving),
+    docsPublishBranch                          := "master"
   )
   .dependsOn(calibanDeriving)
   .enablePlugins(WebsitePlugin)
