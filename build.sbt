@@ -66,7 +66,7 @@ lazy val docs = project
   .in(file("caliban-deriving-docs"))
   .settings(stdSettings("caliban-deriving"))
   .settings(
-    moduleName     := "caliban-deriving-docs",
+    moduleName                                 := "caliban-deriving-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     projectName                                := "Caliban Deriving",
