@@ -6,6 +6,8 @@
 
 Full-featured, robust deriving for Caliban.
 
+[![Development](https://img.shields.io/badge/Project%20Stage-Development-green.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/caliban-deriving/workflows/CI/badge.svg) [![Sonatype Releases](https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/caliban-deriving_3.svg?label=Sonatype%20Release)](https://oss.sonatype.org/content/repositories/releases/dev/zio/caliban-deriving_3/) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/caliban-deriving_3.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/caliban-deriving_3/) [![javadoc](https://javadoc.io/badge2/dev.zio/caliban-deriving-docs_3/javadoc.svg)](https://javadoc.io/doc/dev.zio/caliban-deriving-docs_3) [![Caliban Deriving](https://img.shields.io/github/stars/zio/caliban-deriving?style=social)](https://github.com/zio/caliban-deriving)
+
 The Caliban Deriving library provides an advanced derive macro for the [Caliban library](https://github.com/ghostdogpr/caliban) that seamlessly integrates with the built-in schema derivation system and allows the library users to not only derive the schema for the user defined case classes and enums but also for calculated fields and functions with parameters.
 
 ## Getting started
